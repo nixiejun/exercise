@@ -2,7 +2,6 @@ package mapreduce
 
 import (
 	"fmt"
-	"log"
 	"sync"
 )
 
@@ -32,33 +31,33 @@ func (mr *Master) schedule(phase jobPhase) {
 	//
 
 	var waitgroup sync.WaitGroup
-	debug("ntasks: %v",ntasks)
-	debug("file size %v", len(mr.files))
 	for i := 0; i< ntasks;i++{
 		waitgroup.Add(1)
+		debug("START TASK %v",i)
 		go func(taskNum int, nios int, phase jobPhase){
 			defer waitgroup.Done()
-			for {
-				worker := <-mr.registerChannel
+
 				var args DoTaskArgs
 				args.JobName = mr.jobName
-
 				args.File = mr.files[taskNum]
-
 				args.TaskNumber = taskNum
 				args.Phase = phase
 				args.NumOtherPhase = nios
+
+				worker := <-mr.registerChannel
+
 				ok := call(worker, "Worker.DoTask", &args, nil)
 				if ok != true {
-					log.Fatal("Remote call doTask i worker failed")
-				}
-				if ok {
+					debug("failed task I %v",i)
+					i = i-1
+				} else{
 					go func() {
-						mr.registerChannel <- worker
-					}()
-					break
+						mr.registerChannel <- worker}()
 				}
-			}
+
+
+
+
 		}(i, nios, phase)
 	}
 
